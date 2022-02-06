@@ -31,7 +31,6 @@ contract SuperDeposit {
     ILendingPool private lendingPool = ILendingPool(provider.getLendingPool());
 
     IConstantFlowAgreementV1 private cfa;
-    ISuperfluid private host;
 
     address public keeperContract;
     //
@@ -57,12 +56,10 @@ contract SuperDeposit {
     
     constructor(
         IConstantFlowAgreementV1 _cfa,
-        ISuperfluid _host,
         ISuperToken _daix,
         address _dai
     ) {
         cfa = _cfa;
-        host = _host;
         aaveDAI = _dai;
         _superDai = _daix;
     }
@@ -92,7 +89,6 @@ contract SuperDeposit {
     }
 
     function depositToAave(
-        address token,
         address recepient        
     ) external onlyKeeperContract {
         uint256 amount = totalAccumulated(recepient);
@@ -122,17 +118,6 @@ contract SuperDeposit {
     function toUint(int96 number) private pure returns(uint256) {
         int256 number1 = int256(number);
         return(uint256(number1));
-    }
-
-    function _updateCurentInfo(
-        address owner,
-        uint startTime,
-        int96 flowRate
-    ) external onlyKeeperContract {
-        //require(addressFlowRate[owner][acceptedToken].frequency != 0, "register a frequency first");
-        uint256 totalAcc = ((block.timestamp - startTime) * toUint(flowRate));
-        uint256 feq = addressFlowRate[owner].frequency;
-        addressFlowRate[owner] = FlowrateInfo(startTime, flowRate, totalAcc, feq);
     }
 
     function totalAccumulated(

@@ -31,12 +31,6 @@ interface ISuperDeposit {
 
     function addKeeperContractAddress(address _keeperCon) external;
 
-    function _updateCurentInfo(
-        address owner,
-        uint startTime,
-        int96 flowRate
-    ) external;
-
     function getAddressTokenInfo(
         address user
     ) external view returns(
