@@ -12,41 +12,33 @@ pragma solidity ^0.8.0;
 
 interface ISuperDeposit {
 
+
     function depositToAave(
-        address token,
         address recepient        
     ) external;
 
     function _getFlow(
-        address acceptedToken,
         address sender,
         address recepient
     ) external view returns(uint256, int96);
 
-    function removeAddress(address token, uint toRemove) external;
+    function removeAddress(uint toRemove) external;
 
-    function getTokenUserAddress(
-        address token,
+    function getUserAddress(
         uint256 index
     ) view external returns(address);
 
-    function getTotalAddresses(address token) external view returns(uint);
-
-    function getTokens(uint256 index) external view returns(address);
-    
-    function getTotalTokens() external view returns(uint256);
+    function getTotalAddresses() external view returns(uint);
 
     function addKeeperContractAddress(address _keeperCon) external;
 
     function _updateCurentInfo(
-        address acceptedToken,
         address owner,
         uint startTime,
         int96 flowRate
     ) external;
 
     function getAddressTokenInfo(
-        address token,
         address user
     ) external view returns(
         uint256 startTime,
@@ -68,8 +60,8 @@ contract DepositKeeper is KeeperCompatibleInterface {
         superDeposit.addKeeperContractAddress(address(this));
     }
 
-    function _getAddressFreequency(address superToken, address user) private view returns(uint, uint) {
-        (uint start,,,uint frequency) = superDeposit.getAddressTokenInfo(superToken, user);
+    function _getAddressFreequency(address user) private view returns(uint, uint) {
+        (uint start,,,uint frequency) = superDeposit.getAddressTokenInfo(user);
         return (start, frequency);
     }
 
@@ -80,20 +72,20 @@ contract DepositKeeper is KeeperCompatibleInterface {
     ) { 
         //for (uint i = 0; i < superDeposit.getTotalTokens(); i++) {
             //address token = superDeposit.getTokens(i);
-        address token = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
-        for (uint p = 0; p < superDeposit.getTotalAddresses(token); p++) {
-            address user = superDeposit.getTokenUserAddress(token, p);
-            (,int96 flowRate) = superDeposit._getFlow(token, user, address(superDeposit));
-            (uint begining, uint freq) = _getAddressFreequency(token, user);
+        //address token = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
+        for (uint p = 0; p < superDeposit.getTotalAddresses(); p++) {
+            address user = superDeposit.getUserAddress(p);
+            (,int96 flowRate) = superDeposit._getFlow(user, address(superDeposit));
+            (uint begining, uint freq) = _getAddressFreequency(user);
             if (((begining + freq) >= block.timestamp) && flowRate != 0) {
                 upkeepNeeded = true;
                 uint purpose = 1;
-                return (true, abi.encodePacked(token, p, purpose));
+                return (true, abi.encodePacked(p, purpose));
             }
             if (flowRate == 0) {
                 upkeepNeeded = true;
                 uint purpose = 2;
-                return (true, abi.encodePacked(token, p, purpose));
+                return (true, abi.encodePacked(p, purpose));
             }
         }
         //}
@@ -103,14 +95,14 @@ contract DepositKeeper is KeeperCompatibleInterface {
     }
     
     function performUpkeep(bytes calldata performData) external override {
-        (address token, uint256 index, uint purpose) = abi.decode(performData, (address, uint256, uint256));
-        address user = superDeposit.getTokenUserAddress(token, index);
+        (uint256 index, uint purpose) = abi.decode(performData, (uint256, uint256));
+        address user = superDeposit.getUserAddress(index);
         if (purpose == 1) {
-            superDeposit.depositToAave(token, user);
+            superDeposit.depositToAave( user);
         } 
         if (purpose == 2) {
-            superDeposit.depositToAave(token, user);
-            superDeposit.removeAddress(token, index);
+            superDeposit.depositToAave(user);
+            superDeposit.removeAddress(index);
         }
     }
     

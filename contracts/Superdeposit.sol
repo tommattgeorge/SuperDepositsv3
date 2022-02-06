@@ -22,7 +22,8 @@ import "../interfaces/ILendingPool.sol";
 
 contract SuperDeposit {
 
-    address DAI;
+    address private aaveDAI;
+    ISuperToken private _superDai;
     
     ILendingPoolAddressesProvider private provider = ILendingPoolAddressesProvider(
         address(0x88757f2f99175387aB4C6a4b3067c77A695b0349)
@@ -33,6 +34,7 @@ contract SuperDeposit {
     ISuperfluid private host;
 
     address public keeperContract;
+    //
     address[] private acceptedTokens;
 
     struct FlowrateInfo {
@@ -47,15 +49,11 @@ contract SuperDeposit {
         ISuperToken _token;
     }
 
-    mapping(ISuperToken => IERC20) private superTokeToNormal;
+    //mapping(ISuperToken => IERC20) private superTokeToNormal;
 
-    mapping(address => mapping(ISuperToken => FlowrateInfo)) private addressFlowRate;
+    mapping(address => FlowrateInfo) private addressFlowRate;
 
-    mapping(string => TokenAndSuper) private tokenToSuperToke;//name of the token
-
-    mapping(address => mapping(ISuperToken => uint256)) private tokenAddressindex;//index of the address in the token array
-
-    mapping(ISuperToken => address[]) private tokenAddresses;//active addresses with streams
+    address[] private tokenAddresses;//active addresses with streams
     
     constructor(IConstantFlowAgreementV1 _cfa, ISuperfluid _host) {
         cfa = _cfa;
@@ -72,17 +70,18 @@ contract SuperDeposit {
         keeperContract = _keeperCon;
     }
 
+    /*
     function addAcceptedToken(ISuperToken token, string memory name, address normalToken) public {
         acceptedTokens.push(address(token));
         tokenToSuperToke[name] = TokenAndSuper(IERC20(normalToken), token);
         superTokeToNormal[token] = IERC20(normalToken);
     }
+    */
     function _getFlow(
-        ISuperToken acceptedToken,
         address sender,
         address recepient
     ) public view returns (uint256, int96){
-        (uint256 startTime, int96 outFloRate, ,) = cfa.getFlow(acceptedToken, sender, recepient);
+        (uint256 startTime, int96 outFloRate, ,) = cfa.getFlow(_superDai, sender, recepient);
         return (startTime, outFloRate);
     }
 
@@ -90,22 +89,22 @@ contract SuperDeposit {
         address token,
         address recepient        
     ) external onlyKeeperContract {
-        uint256 amount = totalAccumulated(recepient, ISuperToken(token));
-        ISuperToken(token).downgrade(amount);
-        IERC20(superTokeToNormal[ISuperToken(token)]).approve(address(lendingPool), amount);
-        lendingPool.deposit(address(superTokeToNormal[ISuperToken(token)]), amount, recepient, 0);
+        uint256 amount = totalAccumulated(recepient);
+        _superDai.downgrade(amount);
+        IERC20(aaveDAI).approve(address(lendingPool), amount);
+        lendingPool.deposit(aaveDAI, amount, recepient, 0);
         //update the user details 
-        uint256 feq = addressFlowRate[recepient][ISuperToken(token)].frequency;
-        (,int96 outFlowRate, ,) = cfa.getFlow(ISuperToken(token),recepient, address(this));
+        uint256 feq = addressFlowRate[recepient].frequency;
+        (,int96 outFlowRate, ,) = cfa.getFlow(_superDai,recepient, address(this));
         if (outFlowRate <= 0) {
-            addressFlowRate[recepient][ISuperToken(token)] = FlowrateInfo(
+            addressFlowRate[recepient] = FlowrateInfo(
                 block.timestamp,
                 outFlowRate,
                 0,
                 0
             );
         } else {
-            addressFlowRate[recepient][ISuperToken(token)] = FlowrateInfo(
+            addressFlowRate[recepient] = FlowrateInfo(
                 block.timestamp,
                 outFlowRate,
                 0,
@@ -120,54 +119,47 @@ contract SuperDeposit {
     }
 
     function _updateCurentInfo(
-        ISuperToken acceptedToken,
         address owner,
         uint startTime,
         int96 flowRate
     ) external onlyKeeperContract {
         //require(addressFlowRate[owner][acceptedToken].frequency != 0, "register a frequency first");
         uint256 totalAcc = ((block.timestamp - startTime) * toUint(flowRate));
-        uint256 feq = addressFlowRate[owner][acceptedToken].frequency;
-        addressFlowRate[owner][acceptedToken] = FlowrateInfo(startTime, flowRate, totalAcc, feq);
+        uint256 feq = addressFlowRate[owner].frequency;
+        addressFlowRate[owner] = FlowrateInfo(startTime, flowRate, totalAcc, feq);
     }
 
     function totalAccumulated(
-        address flowSender,
-        ISuperToken acceptedToken
+        address flowSender
     ) public view returns(uint256) {
-        (uint256 startTime, int96 flowRate) = _getFlow(acceptedToken, flowSender, address(this));
+        (uint256 startTime, int96 flowRate) = _getFlow(flowSender, address(this));
         uint256 totalAcc = ((block.timestamp - startTime) * toUint(flowRate));
         return totalAcc;
     }
 
-    function downGradeForDeposit(string memory token, uint amount) private {
-        ISuperToken supertoken = tokenToSuperToke[token]._token;
-        supertoken.downgrade(amount);
-    }
-
-    function addAddress(ISuperToken token, uint256 frequency) public {
-        ( uint start, int96 outFlowRate) = _getFlow(token, msg.sender, address(this));
+    function addAddress( uint256 frequency) public {
+        ( uint start, int96 outFlowRate) = _getFlow(msg.sender, address(this));
         require(outFlowRate != 0);
-        if (addressFlowRate[msg.sender][token].frequency == 0) {
-            tokenAddresses[token].push(msg.sender);
+        if (addressFlowRate[msg.sender].frequency == 0) {
+            tokenAddresses.push(msg.sender);
         }
-        addressFlowRate[msg.sender][token] = FlowrateInfo(start, outFlowRate, 0, frequency);
+        addressFlowRate[msg.sender] = FlowrateInfo(start, outFlowRate, 0, frequency);
     }
 
-    function removeAddress(ISuperToken token, uint toRemove) external onlyKeeperContract {
-        uint size = tokenAddresses[token].length - 1;
-        tokenAddresses[token][toRemove] = tokenAddresses[token][size];
-        tokenAddresses[token].pop();
+    function removeAddress(uint toRemove) external onlyKeeperContract {
+        uint size = tokenAddresses.length - 1;
+        tokenAddresses[toRemove] = tokenAddresses[size];
+        tokenAddresses.pop();
     }
 
-    function getTotalAddresses(ISuperToken token) public view returns(uint256) {
-        return tokenAddresses[token].length;
+    function getTotalAddresses() public view returns(uint256) {
+        return tokenAddresses.length;
     }
 
-    function getTokenUserAddress(ISuperToken token, uint256 index) external view returns(address) {
-        return tokenAddresses[token][index];
+    function getUserAddress(uint256 index) external view returns(address) {
+        return tokenAddresses[index];
     }
-
+/*
     function getTokens(uint256 index) external view returns(address) {
         return acceptedTokens[index];
     }
@@ -175,9 +167,10 @@ contract SuperDeposit {
     function getTotalTokens() external view returns(uint256) {
         return acceptedTokens.length;
     }
+    */
+
 
     function getAddressTokenInfo(
-        ISuperToken token,
         address user
     ) external view returns(
         uint256 startTime,
@@ -185,11 +178,11 @@ contract SuperDeposit {
         uint256 amountAccumunated,
         uint256 frequency
     ) {
-        uint duration = block.timestamp - addressFlowRate[user][token].startTime; 
-        startTime = addressFlowRate[user][token].startTime; 
-        flowRate = addressFlowRate[user][token].flowRate;
-        amountAccumunated = totalAccumulated(user, token);
-        frequency = addressFlowRate[user][token].frequency;
+        uint duration = block.timestamp - addressFlowRate[user].startTime; 
+        startTime = addressFlowRate[user].startTime; 
+        flowRate = addressFlowRate[user].flowRate;
+        amountAccumunated = totalAccumulated(user);
+        frequency = addressFlowRate[user].frequency;
         return(startTime,flowRate,amountAccumunated,frequency);
     }
 
