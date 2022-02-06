@@ -31,88 +31,92 @@ def deployment_path():
         SuperDeposit.deploy(
             cfa_kovan,
             host_kovan,
-            {"from": acount},
-            publish_source=True
+            daikovan,
+            daixkovan,
+            {"from": acount}
+            #publish_source=True
         )
         if len(SuperDeposit) <= 0
         else SuperDeposit[-1]
     )
-    print("super contract deployed at: ")
-    deposit_address = deposit_contract.address
-    print(deposit_address)
-    print("deploying contract 2...")
-    keeper_contract = (
-        DepositKeeper.deploy(
-            deposit_address,
-            {"from": acount},
-            publish_source=True
-        )
-        if len(DepositKeeper) <= 0
-        else DepositKeeper[-1]
-    )
-    keeper_address = keeper_contract.address
-    print(keeper_address)
-
-    print("deploying contract 2...")
-    data_contract = (
-        DataGiver.deploy(
-            host_kovan,
-            cfa_kovan,
-            {"from": acount}
-        )
-        if len(DataGiver) <= 0
-        else DataGiver[-1]
-    )
-
-    #deposit_contract.addAcceptedToken(
-    #    daixkovan,
-    #    "DAI",
+    #print("super contract deployed at: ")
+    #deposit_address = deposit_contract.address
+    #print(deposit_address)
+    #print("deploying contract 2...")
+    #keeper_contract = (
+    #    DepositKeeper.deploy(
+    #        deposit_address,
+    #        {"from": acount},
+    #        publish_source=True
+    #    )
+    #    if len(DepositKeeper) <= 0
+    #    else DepositKeeper[-1]
+    #)
+    #keeper_address = keeper_contract.address
+    #print(keeper_address)
+#
+    #print("deploying contract 2...")
+    #data_contract = (
+    #    DataGiver.deploy(
+    #        host_kovan,
+    #        cfa_kovan,
+    #        {"from": acount}
+    #    )
+    #    if len(DataGiver) <= 0
+    #    else DataGiver[-1]
+    #)
+#
+    ##deposit_contract.addAcceptedToken(
+    ##    daixkovan,
+    ##    "DAI",
+    ##    daikovan,
+    ##    {"from": acount}
+    ##)
+    #
+    #assert(deposit_contract.keeperContract() == keeper_address)
+#
+    #daix = interface.ISuperToken(daixkovan)
+    #dai = interface.IERC20(daikovan)
+#
+    #print("approving dai upgrade")
+    #dai.approve(
     #    daikovan,
+    #    2000000000000000000000,
     #    {"from": acount}
     #)
-    
-    assert(deposit_contract.keeperContract() == keeper_address)
-
-    daix = interface.IsuperToken(daixkovan)
-    dai = interface.IERC20(daikovan)
-
-    print("approving dai upgrade")
-    dai.approve(
-        daikovan,
-        2000000000000000000000,
-        {"from": acount}
-    )
-    print("upgrading...")
-    daix.upgrade(2000000000000000000000, {"from": acount})
-
-    CFA = interface.IConstantFlowAgreementV1(cfa_kovan)
-    #nft_contract = interface.ITreeBudgetNFT("")
-    _host = interface.ISuperfluid(host_kovan)
-
-    print("creating flow...")
-    def create_flow():
-        cfaContext = data_contract.getEncoding(
-            convert.to_int("111 gwei"),
-            daixkovan,
-            deposit_address
-        )
-        return _host.callAgreement(
-            cfa_kovan,#cfa addressl
-            cfaContext,
-            "",#user data
-            {"from": acount}
-        )
-    create_flow()
-
-    print("getting cfa to contract from account..")
-    print(
-        CFA.getFlow(
-            daixkovan,
-            acount,
-            deposit_address
-        )
-    )
-    deposit_contract.addAddress(36000, {"from": acount})
+    #print("upgrading...")
+    #amount = dai.allowance(acount, daikovan)
+    #print(amount)
+    ##daix.upgrade(amount, {"from": acount})
+#
+    #CFA = interface.IConstantFlowAgreementV1(cfa_kovan)
+    ##nft_contract = interface.ITreeBudgetNFT("")
+    #_host = interface.ISuperfluid(host_kovan)
+#
+    #print("creating flow...")
+    #def create_flow():
+    #    cfaContext = data_contract.getEncoding(
+    #        convert.to_int("111 gwei"),
+    #        daixkovan,
+    #        deposit_address
+    #    )
+    #    return _host.callAgreement(
+    #        cfa_kovan,#cfa addressl
+    #        cfaContext,
+    #        "",#user data
+    #        {"from": acount}
+    #    )
+    #create_flow()
+#
+    #print("getting cfa to contract from account..")
+    #print(
+    #    CFA.getFlow(
+    #        daixkovan,
+    #        acount,
+    #        deposit_address
+    #    )
+    #)
+    #deposit_contract.addAddress(36000, {"from": acount})
 def main():
     deployment_path()
 
