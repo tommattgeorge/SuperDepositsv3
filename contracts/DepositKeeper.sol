@@ -78,24 +78,25 @@ contract DepositKeeper is KeeperCompatibleInterface {
     ) external view override returns (
         bool upkeepNeeded, bytes memory performData
     ) { 
-        for (uint i = 0; i < superDeposit.getTotalTokens(); i++) {
-            address token = superDeposit.getTokens(i);
-            for (uint p = 0; p < superDeposit.getTotalAddresses(token); p++) {
-                address user = superDeposit.getTokenUserAddress(token, p);
-                (,int96 flowRate) = superDeposit._getFlow(token, user, address(superDeposit));
-                (uint begining, uint freq) = _getAddressFreequency(token, user);
-                if (((begining + freq) >= block.timestamp) && flowRate != 0) {
-                    upkeepNeeded = true;
-                    uint purpose = 1;
-                    return (true, abi.encodePacked(token, p, purpose));
-                }
-                if (flowRate == 0) {
-                    upkeepNeeded = true;
-                    uint purpose = 2;
-                    return (true, abi.encodePacked(token, p, purpose));
-                }
+        //for (uint i = 0; i < superDeposit.getTotalTokens(); i++) {
+            //address token = superDeposit.getTokens(i);
+        address token = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
+        for (uint p = 0; p < superDeposit.getTotalAddresses(token); p++) {
+            address user = superDeposit.getTokenUserAddress(token, p);
+            (,int96 flowRate) = superDeposit._getFlow(token, user, address(superDeposit));
+            (uint begining, uint freq) = _getAddressFreequency(token, user);
+            if (((begining + freq) >= block.timestamp) && flowRate != 0) {
+                upkeepNeeded = true;
+                uint purpose = 1;
+                return (true, abi.encodePacked(token, p, purpose));
+            }
+            if (flowRate == 0) {
+                upkeepNeeded = true;
+                uint purpose = 2;
+                return (true, abi.encodePacked(token, p, purpose));
             }
         }
+        //}
         
         performData = checkData;
         
