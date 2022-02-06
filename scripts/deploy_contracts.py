@@ -53,6 +53,7 @@ def deployment_path():
     keeper_address = keeper_contract.address
     print(keeper_address)
 
+    print("deploying contract 2...")
     data_contract = (
         DataGiver.deploy(
             host_kovan,
@@ -63,18 +64,32 @@ def deployment_path():
         else DataGiver[-1]
     )
 
-    deposit_contract.addAcceptedToken(
-        daixkovan,
-        "DAI",
-        daikovan,
-        {"from": acount}
-    )
+    #deposit_contract.addAcceptedToken(
+    #    daixkovan,
+    #    "DAI",
+    #    daikovan,
+    #    {"from": acount}
+    #)
     
     assert(deposit_contract.keeperContract() == keeper_address)
+
+    daix = interface.IsuperToken(daixkovan)
+    dai = interface.IERC20(daikovan)
+
+    print("approving dai upgrade")
+    dai.approve(
+        daikovan,
+        2000000000000000000000,
+        {"from": acount}
+    )
+    print("upgrading...")
+    daix.upgrade(2000000000000000000000, {"from": acount})
 
     CFA = interface.IConstantFlowAgreementV1(cfa_kovan)
     #nft_contract = interface.ITreeBudgetNFT("")
     _host = interface.ISuperfluid(host_kovan)
+
+    print("creating flow...")
     def create_flow():
         cfaContext = data_contract.getEncoding(
             convert.to_int("111 gwei"),
@@ -97,7 +112,7 @@ def deployment_path():
             deposit_address
         )
     )
-
+    deposit_contract.addAddress(36000, {"from": acount})
 def main():
     deployment_path()
 
