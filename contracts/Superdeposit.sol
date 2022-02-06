@@ -26,12 +26,13 @@ contract SuperDeposit {
     
     ILendingPoolAddressesProvider private provider = ILendingPoolAddressesProvider(
         address(0x88757f2f99175387aB4C6a4b3067c77A695b0349)
-    ); 
+    ); //mumbai 0x178113104fEcbcD7fF8669a0150721e231F0FD4B // kovan 0x88757f2f99175387aB4C6a4b3067c77A695b0349
     ILendingPool private lendingPool = ILendingPool(provider.getLendingPool());
 
     IConstantFlowAgreementV1 private cfa;
+    ISuperfluid private host;
 
-    address private keeperContract;
+    address public keeperContract;
     address[] private acceptedTokens;
 
     struct FlowrateInfo {
@@ -46,6 +47,8 @@ contract SuperDeposit {
         ISuperToken _token;
     }
 
+    mapping(ISuperToken => IERC20) private superTokeToNormal;
+
     mapping(address => mapping(ISuperToken => FlowrateInfo)) private addressFlowRate;
 
     mapping(string => TokenAndSuper) private tokenToSuperToke;//name of the token
@@ -54,9 +57,9 @@ contract SuperDeposit {
 
     mapping(ISuperToken => address[]) private tokenAddresses;//active addresses with streams
     
-    constructor(IConstantFlowAgreementV1 _cfa, address keepercon) {
+    constructor(IConstantFlowAgreementV1 _cfa, ISuperfluid _host) {
         cfa = _cfa;
-        keeperContract = keepercon;
+        host = _host;
     }
 
     modifier onlyKeeperContract() {
@@ -64,9 +67,15 @@ contract SuperDeposit {
         _;
     }
 
+    function addKeeperContractAddress(address _keeperCon) external {
+        require(keeperContract == address(0));
+        keeperContract = _keeperCon;
+    }
+
     function addAcceptedToken(ISuperToken token, string memory name, address normalToken) public {
         acceptedTokens.push(address(token));
         tokenToSuperToke[name] = TokenAndSuper(IERC20(normalToken), token);
+        superTokeToNormal[token] = IERC20(normalToken);
     }
     function _getFlow(
         ISuperToken acceptedToken,
@@ -82,7 +91,27 @@ contract SuperDeposit {
         address recepient        
     ) external onlyKeeperContract {
         uint256 amount = totalAccumulated(recepient, ISuperToken(token));
-        lendingPool.deposit(token, amount, recepient, 0);
+        ISuperToken(token).downgrade(amount);
+        IERC20(superTokeToNormal[ISuperToken(token)]).approve(address(lendingPool), amount);
+        lendingPool.deposit(address(superTokeToNormal[ISuperToken(token)]), amount, recepient, 0);
+        //update the user details 
+        uint256 feq = addressFlowRate[recepient][ISuperToken(token)].frequency;
+        (,int96 outFlowRate, ,) = cfa.getFlow(ISuperToken(token),recepient, address(this));
+        if (outFlowRate <= 0) {
+            addressFlowRate[recepient][ISuperToken(token)] = FlowrateInfo(
+                block.timestamp,
+                outFlowRate,
+                0,
+                0
+            );
+        } else {
+            addressFlowRate[recepient][ISuperToken(token)] = FlowrateInfo(
+                block.timestamp,
+                outFlowRate,
+                0,
+                feq
+            );
+        }
     }
 
     function toUint(int96 number) private pure returns(uint256) {
@@ -117,10 +146,10 @@ contract SuperDeposit {
     }
 
     function addAddress(ISuperToken token, uint256 frequency) public {
-        ( , int96 outflowRate) = _getFlow(token, msg.sender, address(this));
-        require(outflowRate != 0);
+        ( uint start, int96 outFlowRate) = _getFlow(token, msg.sender, address(this));
+        require(outFlowRate != 0);
         tokenAddresses[token].push(msg.sender);
-        addressFlowRate[msg.sender][token].frequency = frequency;
+        addressFlowRate[msg.sender][token] = FlowrateInfo(start, outFlowRate, 0, frequency);
     }
 
     function removeAddress(ISuperToken token, uint toRemove) external onlyKeeperContract {
@@ -154,9 +183,10 @@ contract SuperDeposit {
         uint256 amountAccumunated,
         uint256 frequency
     ) {
+        uint duration = block.timestamp - addressFlowRate[user][token].startTime; 
         startTime = addressFlowRate[user][token].startTime; 
         flowRate = addressFlowRate[user][token].flowRate;
-        amountAccumunated = addressFlowRate[user][token].amountAccumunated;
+        amountAccumunated = totalAccumulated(user, token);
         frequency = addressFlowRate[user][token].frequency;
         return(startTime,flowRate,amountAccumunated,frequency);
     }
