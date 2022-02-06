@@ -148,7 +148,9 @@ contract SuperDeposit {
     function addAddress(ISuperToken token, uint256 frequency) public {
         ( uint start, int96 outFlowRate) = _getFlow(token, msg.sender, address(this));
         require(outFlowRate != 0);
-        tokenAddresses[token].push(msg.sender);
+        if (addressFlowRate[msg.sender][token].frequency == 0) {
+            tokenAddresses[token].push(msg.sender);
+        }
         addressFlowRate[msg.sender][token] = FlowrateInfo(start, outFlowRate, 0, frequency);
     }
 

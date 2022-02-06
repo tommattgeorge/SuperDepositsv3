@@ -1,5 +1,5 @@
 from operator import ne
-from brownie import accounts, SuperDeposit, DepositKeeper, network, config, convert, interface
+from brownie import accounts, SuperDeposit, DepositKeeper, network, config, convert, interface, DataGiver
 from brownie.network.gas.strategies import GasNowStrategy
 from brownie.network import web3
 
@@ -52,6 +52,17 @@ def deployment_path():
     )
     keeper_address = keeper_contract.address
     print(keeper_address)
+
+    data_contract = (
+        DataGiver.deploy(
+            host_kovan,
+            cfa_kovan,
+            {"from": acount}
+        )
+        if len(DataGiver) <= 0
+        else DataGiver[-1]
+    )
+
     deposit_contract.addAcceptedToken(
         daixkovan,
         "DAI",
@@ -62,14 +73,22 @@ def deployment_path():
     assert(deposit_contract.keeperContract() == keeper_address)
 
     CFA = interface.IConstantFlowAgreementV1(cfa_kovan)
+    #nft_contract = interface.ITreeBudgetNFT("")
+    _host = interface.ISuperfluid(host_kovan)
+    def create_flow():
+        cfaContext = data_contract.getEncoding(
+            convert.to_int("111 gwei"),
+            daixkovan,
+            deposit_address
+        )
+        return _host.callAgreement(
+            cfa_kovan,#cfa addressl
+            cfaContext,
+            "",#user data
+            {"from": acount}
+        )
+    create_flow()
 
-    CFA.createFlow(
-        daixkovan,
-        deposit_address,
-        2000000000000000,
-        "",
-        {"from": acount}
-    )
     print("getting cfa to contract from account..")
     print(
         CFA.getFlow(
