@@ -25,8 +25,10 @@ interface ISuperDeposit {
     function getTotalAddresses(address token) external view returns(uint);
 
     function getTokens(uint256 index) external view returns(address);
-
+    //gets the total tokens allowed on the contract
     function getTotalTokens() external view returns(uint256);
+
+    function addKeeperContractAddress(address _keeperCon) external;
 
     function _updateCurentInfo(
         address acceptedToken,
