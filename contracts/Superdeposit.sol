@@ -95,7 +95,7 @@ contract SuperDeposit {
         lendingPool.deposit(aaveDAI, amount, recepient, 0);
         //update the user details 
         uint256 feq = addressFlowRate[recepient].frequency;
-        (,int96 outFlowRate, ,) = cfa.getFlow(_superDai,recepient, address(this));
+        (,int96 outFlowRate, ,) = cfa.getFlow(_superDai, recepient, address(this));
         if (outFlowRate <= 0) {
             addressFlowRate[recepient] = FlowrateInfo(
                 block.timestamp,
