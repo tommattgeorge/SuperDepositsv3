@@ -18,8 +18,7 @@ interface ISuperDeposit {
     ) external;
 
     function _getFlow(
-        address sender,
-        address recepient
+        address sender
     ) external view returns(uint256, int96);
 
     function removeAddress(uint toRemove) external;
@@ -31,12 +30,6 @@ interface ISuperDeposit {
     function getTotalAddresses() external view returns(uint);
 
     function addKeeperContractAddress(address _keeperCon) external;
-
-    function _updateCurentInfo(
-        address owner,
-        uint startTime,
-        int96 flowRate
-    ) external;
 
     function getAddressTokenInfo(
         address user
@@ -75,7 +68,7 @@ contract DepositKeeper is KeeperCompatibleInterface {
         //address token = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
         for (uint p = 0; p < superDeposit.getTotalAddresses(); p++) {
             address user = superDeposit.getUserAddress(p);
-            (,int96 flowRate) = superDeposit._getFlow(user, address(superDeposit));
+            (,int96 flowRate) = superDeposit._getFlow(user);
             (uint begining, uint freq) = _getAddressFreequency(user);
             if (((begining + freq) >= block.timestamp) && flowRate != 0) {
                 upkeepNeeded = true;

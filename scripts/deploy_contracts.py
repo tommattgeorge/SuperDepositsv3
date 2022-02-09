@@ -30,9 +30,11 @@ def deployment_path():
     deposit_contract = (
         SuperDeposit.deploy(
             cfa_kovan,
-            host_kovan,
-            {"from": acount},
-            publish_source=True
+            #host_kovan,
+            daikovan,
+            daixkovan,
+            {"from": acount}
+            #publish_source=True
         )
         if len(SuperDeposit) <= 0
         else SuperDeposit[-1]
@@ -73,7 +75,7 @@ def deployment_path():
     
     assert(deposit_contract.keeperContract() == keeper_address)
 
-    daix = interface.IsuperToken(daixkovan)
+    daix = interface.ISuperToken(daixkovan)
     dai = interface.IERC20(daikovan)
 
     print("approving dai upgrade")
@@ -83,7 +85,9 @@ def deployment_path():
         {"from": acount}
     )
     print("upgrading...")
-    daix.upgrade(2000000000000000000000, {"from": acount})
+    amount = dai.allowance(acount, daikovan)
+    print(amount)
+    #daix.upgrade(amount, {"from": acount})
 
     CFA = interface.IConstantFlowAgreementV1(cfa_kovan)
     #nft_contract = interface.ITreeBudgetNFT("")
@@ -112,7 +116,7 @@ def deployment_path():
             deposit_address
         )
     )
-    deposit_contract.addAddress(36000, {"from": acount})
+    #deposit_contract.addAddress(36000, {"from": acount})
 def main():
     deployment_path()
 

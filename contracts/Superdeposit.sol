@@ -31,11 +31,10 @@ contract SuperDeposit {
     ILendingPool private lendingPool = ILendingPool(provider.getLendingPool());
 
     IConstantFlowAgreementV1 private cfa;
-    ISuperfluid private host;
 
     address public keeperContract;
     //
-    address[] private acceptedTokens;
+    //address[] private acceptedTokens;
 
     struct FlowrateInfo {
         uint256 startTime;
@@ -55,9 +54,14 @@ contract SuperDeposit {
 
     address[] private tokenAddresses;//active addresses with streams
     
-    constructor(IConstantFlowAgreementV1 _cfa, ISuperfluid _host) {
+    constructor(
+        IConstantFlowAgreementV1 _cfa,
+        ISuperToken _daix,
+        address _dai
+    ) {
         cfa = _cfa;
-        host = _host;
+        aaveDAI = _dai;
+        _superDai = _daix;
     }
 
     modifier onlyKeeperContract() {
@@ -78,15 +82,13 @@ contract SuperDeposit {
     }
     */
     function _getFlow(
-        address sender,
-        address recepient
+        address sender
     ) public view returns (uint256, int96){
-        (uint256 startTime, int96 outFloRate, ,) = cfa.getFlow(_superDai, sender, recepient);
+        (uint256 startTime, int96 outFloRate,,) = cfa.getFlow(_superDai, sender, address(this));
         return (startTime, outFloRate);
     }
 
     function depositToAave(
-        address token,
         address recepient        
     ) external onlyKeeperContract {
         uint256 amount = totalAccumulated(recepient);
@@ -118,31 +120,18 @@ contract SuperDeposit {
         return(uint256(number1));
     }
 
-    function _updateCurentInfo(
-        address owner,
-        uint startTime,
-        int96 flowRate
-    ) external onlyKeeperContract {
-        //require(addressFlowRate[owner][acceptedToken].frequency != 0, "register a frequency first");
-        uint256 totalAcc = ((block.timestamp - startTime) * toUint(flowRate));
-        uint256 feq = addressFlowRate[owner].frequency;
-        addressFlowRate[owner] = FlowrateInfo(startTime, flowRate, totalAcc, feq);
-    }
-
     function totalAccumulated(
         address flowSender
     ) public view returns(uint256) {
-        (uint256 startTime, int96 flowRate) = _getFlow(flowSender, address(this));
+        (uint256 startTime, int96 flowRate,,) = cfa.getFlow(_superDai, flowSender, address(this));
         uint256 totalAcc = ((block.timestamp - startTime) * toUint(flowRate));
         return totalAcc;
     }
 
     function addAddress( uint256 frequency) public {
-        ( uint start, int96 outFlowRate) = _getFlow(msg.sender, address(this));
+        ( uint start, int96 outFlowRate) = _getFlow(msg.sender);
         require(outFlowRate != 0);
-        if (addressFlowRate[msg.sender].frequency == 0) {
-            tokenAddresses.push(msg.sender);
-        }
+        tokenAddresses.push(msg.sender);
         addressFlowRate[msg.sender] = FlowrateInfo(start, outFlowRate, 0, frequency);
     }
 
