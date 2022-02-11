@@ -9,8 +9,7 @@ interface ISuperDeposit {
     ) external;
 
     function _getFlow(
-        address sender,
-        address recepient
+        address sender
     ) external view returns(uint256, int96);
 
     function removeAddress(uint toRemove) external;

@@ -1,5 +1,15 @@
 from operator import ne
-from brownie import accounts, SuperDeposit, DepositKeeper, network, config, convert, interface, DataGiver
+from brownie import (
+    accounts,
+    SuperDeposit,
+    DepositKeeper,
+    network,
+    config,
+    convert,
+    interface,
+    DataGiver,
+    TestKeeper
+)
 from brownie.network.gas.strategies import GasNowStrategy
 from brownie.network import web3
 
@@ -30,9 +40,8 @@ def deployment_path():
     deposit_contract = (
         SuperDeposit.deploy(
             cfa_kovan,
-            #host_kovan,
-            daikovan,
             daixkovan,
+            daikovan,
             {"from": acount}
             #publish_source=True
         )
@@ -44,13 +53,13 @@ def deployment_path():
     print(deposit_address)
     print("deploying contract 2...")
     keeper_contract = (
-        DepositKeeper.deploy(
+        TestKeeper.deploy(
             deposit_address,
             {"from": acount},
-            publish_source=True
+            #publish_source=True
         )
-        if len(DepositKeeper) <= 0
-        else DepositKeeper[-1]
+        if len(TestKeeper) <= 0
+        else TestKeeper[-1]
     )
     keeper_address = keeper_contract.address
     print(keeper_address)
@@ -78,12 +87,12 @@ def deployment_path():
     daix = interface.ISuperToken(daixkovan)
     dai = interface.IERC20(daikovan)
 
-    print("approving dai upgrade")
-    dai.approve(
-        daikovan,
-        2000000000000000000000,
-        {"from": acount}
-    )
+    #print("approving dai upgrade")
+    #dai.approve(
+    #    daikovan,
+    #    2000000000000000000000,
+    #    {"from": acount}
+    #)
     print("upgrading...")
     amount = dai.allowance(acount, daikovan)
     print(amount)
@@ -96,7 +105,7 @@ def deployment_path():
     print("creating flow...")
     def create_flow():
         cfaContext = data_contract.getEncoding(
-            convert.to_int("111 gwei"),
+            convert.to_int("0.25 ether"),
             daixkovan,
             deposit_address
         )
@@ -116,7 +125,9 @@ def deployment_path():
             deposit_address
         )
     )
-    #deposit_contract.addAddress(36000, {"from": acount})
+    print("adding user frequency for flow...")
+    deposit_contract.addFreequency(3590, {"from": acount})
+
 def main():
     deployment_path()
 

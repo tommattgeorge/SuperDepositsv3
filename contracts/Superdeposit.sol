@@ -53,6 +53,7 @@ contract SuperDeposit {
     mapping(address => FlowrateInfo) private addressFlowRate;
 
     address[] private tokenAddresses;//active addresses with streams
+    mapping(address => uint256) private _toDeposit;
     
     constructor(
         IConstantFlowAgreementV1 _cfa,
@@ -73,14 +74,7 @@ contract SuperDeposit {
         require(keeperContract == address(0));
         keeperContract = _keeperCon;
     }
-
-    /*
-    function addAcceptedToken(ISuperToken token, string memory name, address normalToken) public {
-        acceptedTokens.push(address(token));
-        tokenToSuperToke[name] = TokenAndSuper(IERC20(normalToken), token);
-        superTokeToNormal[token] = IERC20(normalToken);
-    }
-    */
+    
     function _getFlow(
         address sender
     ) public view returns (uint256, int96){
@@ -91,17 +85,18 @@ contract SuperDeposit {
     function depositToAave(
         address recepient        
     ) external onlyKeeperContract {
-        uint256 amount = totalAccumulated(recepient);
+        _toDeposit[recepient] = _totalAccumulated(recepient);
+        uint amount = _toDeposit[recepient];
         _superDai.downgrade(amount);
         IERC20(aaveDAI).approve(address(lendingPool), amount);
         lendingPool.deposit(aaveDAI, amount, recepient, 0);
         //update the user details 
         uint256 feq = addressFlowRate[recepient].frequency;
-        (,int96 outFlowRate, ,) = cfa.getFlow(_superDai, recepient, address(this));
+        (uint stop, int96 outFlowRate, ,) = cfa.getFlow(_superDai, recepient, address(this));
         if (outFlowRate <= 0) {
             addressFlowRate[recepient] = FlowrateInfo(
-                block.timestamp,
-                outFlowRate,
+                stop,
+                0,
                 0,
                 0
             );
@@ -120,6 +115,22 @@ contract SuperDeposit {
         return(uint256(number1));
     }
 
+    function _totalAccumulated(
+        address flowSender
+    ) private view returns(uint) {
+        uint256 startTime = addressFlowRate[flowSender].startTime;
+        (uint start2, int96 flowRate,,) = cfa.getFlow(
+            _superDai,
+            flowSender,
+            address(this)
+        );
+        if (flowrate <= 0) {
+            return (start2 - startTime) * toUint(flowRate);
+        } else {
+            return ((block.timestamp - startTime) * toUint(flowRate));
+        }
+    }
+    
     function totalAccumulated(
         address flowSender
     ) public view returns(uint256) {
@@ -128,7 +139,7 @@ contract SuperDeposit {
         return totalAcc;
     }
 
-    function addAddress( uint256 frequency) public {
+    function addFreequency( uint256 frequency) public {
         ( uint start, int96 outFlowRate) = _getFlow(msg.sender);
         require(outFlowRate != 0);
         tokenAddresses.push(msg.sender);

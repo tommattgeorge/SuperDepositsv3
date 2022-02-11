@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
 
 interface KeeperCompatibleInterface {
 
@@ -7,8 +7,7 @@ interface KeeperCompatibleInterface {
 
   function performUpkeep(bytes calldata performData) external;
 }
-
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
 
 interface ISuperDeposit {
 
@@ -41,61 +40,85 @@ interface ISuperDeposit {
     );
 }
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
 
 contract DepositKeeper is KeeperCompatibleInterface {
 
     ISuperDeposit superDeposit;
+    uint256 constant interval = 20 minutes;
+    uint256 public lastCheck;
 
     mapping(address => uint) private tokenAddresses;
     constructor(ISuperDeposit _superDeposit) {
         superDeposit = _superDeposit;
         superDeposit.addKeeperContractAddress(address(this));
+        lastCheck = block.timestamp;
     }
 
-    function _getAddressFreequency(address user) private view returns(uint, uint) {
+    function _getAddressFreequency(address user) public view returns(uint, uint) {
         (uint start,,,uint frequency) = superDeposit.getAddressTokenInfo(user);
         return (start, frequency);
     }
 
-    function checkUpkeep(
-        bytes calldata checkData
-    ) external view override returns (
-        bool upkeepNeeded, bytes memory performData
-    ) { 
-        //for (uint i = 0; i < superDeposit.getTotalTokens(); i++) {
-            //address token = superDeposit.getTokens(i);
-        //address token = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
-        for (uint p = 0; p < superDeposit.getTotalAddresses(); p++) {
-            address user = superDeposit.getUserAddress(p);
-            (,int96 flowRate) = superDeposit._getFlow(user);
-            (uint begining, uint freq) = _getAddressFreequency(user);
-            if (((begining + freq) >= block.timestamp) && flowRate != 0) {
-                upkeepNeeded = true;
-                uint purpose = 1;
-                return (true, abi.encodePacked(p, purpose));
-            }
-            if (flowRate == 0) {
-                upkeepNeeded = true;
-                uint purpose = 2;
-                return (true, abi.encodePacked(p, purpose));
-            }
-        }
-        //}
-        
-        performData = checkData;
-        
+    function _depositToAave(
+        address recepient        
+    ) private {
+        superDeposit.depositToAave(recepient);
+    }
+
+    function getFlow(
+        address sender
+    ) public view returns(uint256, int96) {
+        return superDeposit._getFlow(sender);
+    }
+
+    function _removeAddress(uint toRemove) private {
+        superDeposit.removeAddress(toRemove);
+    }
+
+    function _getUserAddress(
+        uint256 index
+    ) view public returns(address) {
+        return superDeposit.getUserAddress(index);
+    }
+
+    function _getTotalAddresses() public view returns(uint) {
+        return superDeposit.getTotalAddresses();
     }
     
-    function performUpkeep(bytes calldata performData) external override {
-        (uint256 index, uint purpose) = abi.decode(performData, (uint256, uint256));
-        address user = superDeposit.getUserAddress(index);
-        if (purpose == 1) {
-            superDeposit.depositToAave( user);
-        } 
-        if (purpose == 2) {
-            superDeposit.depositToAave(user);
-            superDeposit.removeAddress(index);
+    function readyForKeep() public view returns(bool) {
+        return (lastCheck + interval) <= block.timestamp;
+    }
+
+    function checkUpkeep(
+        bytes calldata /*checkData*/
+    ) external view override returns (
+        bool upkeepNeeded, bytes memory /*performData*/
+    ) { 
+        upkeepNeeded = (lastCheck + interval) <= block.timestamp;
+    }
+
+
+    function depositWithLoop() private {
+        for (uint p = 0; p < _getTotalAddresses(); p++) {
+            address user = _getUserAddress(p);
+            (,int96 flowRate) = getFlow(user);
+            (uint begining, uint freq) = _getAddressFreequency(user);
+            if ((begining + freq) >= block.timestamp) {
+                _depositToAave(user);
+            }
+            if (flowRate == 0) {
+                _depositToAave(user);
+                _removeAddress(p);
+            }
+        }
+    }
+
+    
+    function performUpkeep(bytes calldata /* performData*/) external override {
+        if ((lastCheck + interval) <= block.timestamp) {
+            lastCheck = block.timestamp;
+            depositWithLoop();
         }
     }
     
