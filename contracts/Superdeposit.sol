@@ -17,8 +17,8 @@ import {
     SuperAppDefinitions
 } from "@superfluid/interfaces/superfluid/ISuperfluid.sol";
 import "../interfaces/DataTypes.sol";
-import "../interfaces/ILendingPoolAddressesProvider.sol";
-import "../interfaces/ILendingPool.sol";
+import "../interfaces/IPoolAddressesProvider.sol";
+import "../interfaces/IPool.sol";
 
 contract SuperDeposit {
 
