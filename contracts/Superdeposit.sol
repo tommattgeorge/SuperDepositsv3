@@ -25,10 +25,10 @@ contract SuperDeposit {
     address private aaveDAI;
     ISuperToken private _superDai;
     
-    ILendingPoolAddressesProvider private provider = ILendingPoolAddressesProvider(
+    IPoolAddressesProvider private provider = IPoolAddressesProvider(
         address(0x88757f2f99175387aB4C6a4b3067c77A695b0349)
     ); //mumbai 0x178113104fEcbcD7fF8669a0150721e231F0FD4B // kovan 0x88757f2f99175387aB4C6a4b3067c77A695b0349
-    ILendingPool private lendingPool = ILendingPool(provider.getLendingPool());
+    IPool private Pool = IPool(provider.getPool());
 
     IConstantFlowAgreementV1 private cfa;
 
@@ -89,7 +89,7 @@ contract SuperDeposit {
         uint amount = _toDeposit[recepient];
         _superDai.downgrade(amount);
         IERC20(aaveDAI).approve(address(lendingPool), amount);
-        lendingPool.deposit(aaveDAI, amount, recepient, 0);
+        Pool.deposit(aaveDAI, amount, recepient, 0);
         //update the user details 
         uint256 feq = addressFlowRate[recepient].frequency;
         (uint stop, int96 outFlowRate, ,) = cfa.getFlow(_superDai, recepient, address(this));
